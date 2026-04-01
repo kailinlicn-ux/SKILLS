@@ -1,0 +1,142 @@
+---
+name: company-news-search
+description: 接收 company-watchlist 的 list 输出，按国内/国外分流调用新闻 API 搜索最新新闻；仅定义流程与输入输出约定，不在未知 API 细节时臆造实现。
+---
+
+# 公司新闻搜索（Company News Search）
+
+本 skill 用于把 `company-watchlist` 的输出转化为“最新新闻检索任务”，并按公司归属（国内/国外）分流到不同新闻 API。
+
+## 目标与边界
+
+- **只做**：解析 watchlist 列表 → 为每家公司生成查询词 → 分流到国内/国外新闻 API → 聚合/去重/排序 → 输出结果。
+- **不会做**：
+  - 不在未知 API 细节时编造 URL、参数、鉴权方式、返回字段映射。
+  - 不做投资建议。
+  - 不修改 `company-watchlist/data/watchlist.json`（watchlist 维护由 `company-watchlist` skill 负责）。
+
+## 命令行用法（国外新闻：newsdata.io）
+
+国外新闻搜索已实现为脚本 `company-news-search/scripts/search_foreign_news.py`，默认以**交互方式等待用户输入**（不依赖管道）：
+
+```bash
+python company-news-search/scripts/search_foreign_news.py --per-company 5
+```
+
+运行后脚本会提示你粘贴 `company-watchlist list` 的输出，多行输入后以单独一行 `END` 结束。
+
+如需在自动化场景下使用，仍可选择：
+
+- 管道输入（可选）：`watchlist.py list | search_foreign_news.py ...`
+- 参数输入（可选）：`--input-text "1. [anthropic] Anthropic"`
+
+### CSV 持久化（工作空间）
+
+- 默认会把每次查询结果写入：`company-news-search/data/news_results.csv`（追加模式）
+- 每家公司默认写入前 10 条新闻（可通过 `--csv-topn` 调整）
+- CSV 字段：
+  - `time`
+  - `company_name`
+  - `news_title`
+  - `news_link`
+- 可通过 `--csv-path` 指定其他工作空间内路径
+
+### apikey 获取与保存（每个用户不同）
+
+- 优先从环境变量读取：`NEWSDATA_APIKEY`
+- 否则从用户目录读取/保存：`~/.klinsight/company-news-search.json`
+- 若两者都没有，脚本会在命令行中提示用户输入一次并保存到上述用户目录（**不会写入仓库文件**）。
+
+### Secrets 约定（给其他 AI agent 复用）
+
+- 本 skill 统一使用用户级配置文件：`~/.klinsight/company-news-search.json`
+- newsdata 的 key 字段约定为：
+  - `newsdata.apikey`
+- 推荐读取优先级（必须遵守）：
+  1. `NEWSDATA_APIKEY` 环境变量
+  2. 项目内本地调试文件 `company-news-search/company-news-search.json` 中的 `newsdata.apikey`（应被 gitignore）
+  3. `~/.klinsight/company-news-search.json` 中的 `newsdata.apikey`
+  4. 若都不存在，再交互询问并写回 `~/.klinsight/company-news-search.json`
+- 禁止把 apikey 写入仓库内文件（如 `SKILL.md`、脚本源码、`data/*.json`、提交记录等）。
+
+## 上游输入（来自 company-watchlist）
+
+上游建议通过命令：
+
+```bash
+python company-watchlist/scripts/watchlist.py list
+```
+
+其输出为纯文本，可能是：
+
+- 空列表：`（空）`
+- 非空：每行一个条目，格式为：
+  - `{序号}. [{id}] {name}`
+  - 或 `{序号}. [{id}] {name} 别名:{alias1},{alias2},...`
+
+本 skill 的第一步是把上述文本解析成结构化对象：
+
+- `CompanyItem`
+  - `id`: string
+  - `name`: string
+  - `aliases`: string[]
+
+## 核心流程
+
+1. **解析 watchlist 文本**
+   - 忽略空行。
+   - 若仅包含 `（空）`：直接返回“无公司需要搜索”的空结果。
+   - 提取每行的 `id`、`name`、`aliases[]`（若无 `别名:` 则为空数组）。
+
+2. **为每家公司生成查询词（query candidates）**
+   - 默认候选顺序：
+     1) `name`
+     2) `aliases`（按原顺序追加）
+   - 对候选进行去重（trim/大小写归一仅用于去重，不改变展示）。
+
+3. **公司分流：国内 vs 国外**
+   - 定义可替换的决策点：
+     - `classify_company(company) -> domestic | foreign | unknown`
+   - 当为 `unknown` 时的策略（由实现配置决定）：
+     - 方案 A：默认走 `foreign`
+     - 方案 B：默认走 `domestic`
+     - 方案 C：两边都尝试（需限流与去重）
+   - **本 skill 暂不内置任何判定规则**；待用户提供明确规则/映射后再实现。
+
+4. **调用新闻 API（抽象接口，不绑定具体实现细节）**
+   - 国外：使用 `newsdata.io`
+     - `search_news_foreign(query, *, since, limit) -> NewsItem[]`
+   - 国内：使用“聚合数据”
+     - `search_news_domestic(query, *, since, limit) -> NewsItem[]`
+   - `since/limit` 的具体传参方式、分页策略、鉴权方式、错误/限流处理策略：**等待用户提供 API 实现约定**。
+
+5. **聚合、去重与排序**
+   - 将同一公司、不同 query 返回的新闻合并。
+   - 去重优先级：
+     1) `url`（若存在）
+     2) 退化为 `(title + published_at + source)`
+   - 按 `published_at` 倒序排序，截取每公司 Top-K（K 由实现配置）。
+
+6. **输出**
+   - 输出包含两部分（便于人读 + 便于机器用）：
+     - 摘要：每公司命中数量与最新若干条标题/时间/来源
+     - 结构化 JSON：用于后续流程串联
+
+## 统一的新闻条目结构（标准化结果）
+
+为屏蔽不同 API 的字段差异，内部统一使用：
+
+- `NewsItem`
+  - `title`: string
+  - `source`: string | null
+  - `published_at`: string | null  （建议统一为 ISO 8601 字符串）
+  - `url`: string | null
+  - `summary`: string | null
+  - `matched_query`: string | null （记录命中使用的 query，便于解释与排错）
+
+## 需要用户后续提供的信息（用于落地实现）
+
+1. **国内/国外分类规则**（或一张映射表）。
+2. `newsdata.io` 的调用实现约定（鉴权、请求参数、返回字段、分页/limit、时间筛选、错误码、限流策略）。
+3. 聚合数据的调用实现约定（同上）。
+

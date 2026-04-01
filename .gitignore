@@ -21,3 +21,6 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Local dev secret for company-news-search (do not commit)
+company-news-search/company-news-search.json
