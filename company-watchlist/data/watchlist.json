@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-04-01T02:11:54.397953Z",
+  "updated_at": "2026-04-01T08:34:07.180995Z",
   "items": [
     {
       "id": "tencent",
@@ -57,6 +57,16 @@
       "aliases": [
         "Cursor"
       ]
+    },
+    {
+      "id": "apple",
+      "name": "Apple",
+      "aliases": []
+    },
+    {
+      "id": "联想",
+      "name": "联想",
+      "aliases": []
     }
   ]
 }

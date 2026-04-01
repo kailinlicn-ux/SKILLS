@@ -30,10 +30,18 @@ python company-news-search/scripts/search_foreign_news.py --per-company 5
 - 管道输入（可选）：`watchlist.py list | search_foreign_news.py ...`
 - 参数输入（可选）：`--input-text "1. [anthropic] Anthropic"`
 
+## 命令行用法（国内新闻：tianapi）
+
+国内新闻搜索脚本：`company-news-search/scripts/search_domestic_news.py`
+
+```bash
+python company-news-search/scripts/search_domestic_news.py --input-text "1. [alibaba] 阿里巴巴" --per-company 10 --per-query 10
+```
+
 ### CSV 持久化（工作空间）
 
 - 默认会把每次查询结果写入：`company-news-search/data/news_results.csv`（追加模式）
-- 每家公司默认写入前 10 条新闻（可通过 `--csv-topn` 调整）
+- 每家公司保留并写入最新 5 条新闻
 - CSV 字段：
   - `time`
   - `company_name`
@@ -95,23 +103,19 @@ python company-watchlist/scripts/watchlist.py list
    - 对候选进行去重（trim/大小写归一仅用于去重，不改变展示）。
 
 3. **公司分流：国内 vs 国外**
-   - 定义可替换的决策点：
-     - `classify_company(company) -> domestic | foreign | unknown`
-   - 当为 `unknown` 时的策略（由实现配置决定）：
-     - 方案 A：默认走 `foreign`
-     - 方案 B：默认走 `domestic`
-     - 方案 C：两边都尝试（需限流与去重）
-   - **本 skill 暂不内置任何判定规则**；待用户提供明确规则/映射后再实现。
+   - 分流判定由使用本 skill 的 LLM/Agent 自行决定。
+   - 本 skill 不内置固定规则或映射表，不限制判定方法。
+   - 若 Agent 无法确定归属，可先向用户确认后再调用相应 API。
 
 4. **调用新闻 API（抽象接口，不绑定具体实现细节）**
    - 国外：使用 `newsdata.io`
      - `search_news_foreign(query, *, since, limit) -> NewsItem[]`
-   - 国内：使用“聚合数据”
-    - 已实现客户端：`company-news-search/scripts/juhe_client.py`
-    - 查询接口：`http://v.juhe.cn/toutiao/index`
-    - key 来源：`company-news-search/company-news-search.json` 的 `juhe.key`
-    - 基础调用：`fetch_toutiao_list(type="top", page=1, page_size=30, is_filter=0)`
-    - 结果标准化：`normalize_juhe_item(...)` 映射到统一字段（title/source/published_at/url）
+  - 国内：使用天行数据国内新闻接口
+   - 已实现客户端：`company-news-search/scripts/tianapi_client.py`
+   - 查询接口：`https://apis.tianapi.com/guonei/index`
+   - key 来源：`company-news-search/company-news-search.json` 的 `tianapi.key`
+   - 基础调用：`fetch_guonei_list(num=10, page=1, form=1, rand=1, word=关键词)`
+   - 结果标准化：`normalize_tianapi_item(...)` 映射到统一字段（title/source/published_at/url/summary）
    - `since/limit` 的具体传参方式、分页策略、鉴权方式、错误/限流处理策略：**等待用户提供 API 实现约定**。
 
 5. **聚合、去重与排序**
@@ -140,7 +144,6 @@ python company-watchlist/scripts/watchlist.py list
 
 ## 需要用户后续提供的信息（用于落地实现）
 
-1. **国内/国外分类规则**（或一张映射表）。
-2. `newsdata.io` 的调用实现约定（鉴权、请求参数、返回字段、分页/limit、时间筛选、错误码、限流策略）。
-3. 聚合数据的调用实现约定（同上）。
+1. `newsdata.io` 的调用实现约定（鉴权、请求参数、返回字段、分页/limit、时间筛选、错误码、限流策略）。
+2. 天行数据的调用实现约定（同上）。
 

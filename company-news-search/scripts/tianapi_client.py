@@ -8,14 +8,14 @@ from pathlib import Path
 from typing import Any
 
 
-JUHE_TOUTIAO_ENDPOINT = "http://v.juhe.cn/toutiao/index"
+TIANAPI_GUONEI_ENDPOINT = "https://apis.tianapi.com/guonei/index"
 
 
 def _project_config_path() -> Path:
     return Path(__file__).resolve().parents[1] / "company-news-search.json"
 
 
-def load_juhe_key() -> str | None:
+def load_tianapi_key() -> str | None:
     p = _project_config_path()
     if not p.exists():
         return None
@@ -23,61 +23,65 @@ def load_juhe_key() -> str | None:
         data = json.loads(p.read_text(encoding="utf-8"))
     except Exception:
         return None
-    key = (data.get("juhe") or {}).get("key")
+    key = (data.get("tianapi") or {}).get("key")
     if isinstance(key, str) and key.strip():
         return key.strip()
     return None
 
 
-def ensure_juhe_key() -> str:
-    key = load_juhe_key()
+def ensure_tianapi_key() -> str:
+    key = load_tianapi_key()
     if key:
         return key
     raise RuntimeError(
-        f"missing juhe key; please set juhe.key in {_project_config_path()}"
+        f"missing tianapi key; please set tianapi.key in {_project_config_path()}"
     )
 
 
 @dataclass(frozen=True)
-class JuheToutiaoResult:
+class TianapiGuoneiResult:
     raw: dict[str, Any]
 
     @property
-    def error_code(self) -> int:
-        value = self.raw.get("error_code")
+    def code(self) -> int:
+        value = self.raw.get("code")
         return value if isinstance(value, int) else -1
 
     @property
-    def reason(self) -> str:
-        value = self.raw.get("reason")
+    def msg(self) -> str:
+        value = self.raw.get("msg")
         return value if isinstance(value, str) else ""
 
     @property
-    def data(self) -> list[dict[str, Any]]:
+    def list(self) -> list[dict[str, Any]]:
         result = self.raw.get("result")
         if not isinstance(result, dict):
             return []
-        value = result.get("data")
+        value = result.get("list")
         return value if isinstance(value, list) else []
 
 
-def fetch_toutiao_list(
+def fetch_guonei_list(
     *,
     key: str,
-    type: str = "top",
+    num: int = 10,
     page: int = 1,
-    page_size: int = 30,
-    is_filter: int = 0,
+    form: int = 1,
+    rand: int = 1,
+    word: str | None = None,
     timeout_s: int = 20,
-) -> JuheToutiaoResult:
-    params = {
+) -> TianapiGuoneiResult:
+    params: dict[str, Any] = {
         "key": key,
-        "type": type,
-        "page": max(1, min(50, int(page))),
-        "page_size": max(1, min(30, int(page_size))),
-        "is_filter": 1 if int(is_filter) == 1 else 0,
+        "num": max(1, min(50, int(num))),
+        "page": max(1, int(page)),
+        "form": 1 if int(form) == 1 else 0,
+        "rand": 1 if int(rand) == 1 else 0,
     }
-    url = f"{JUHE_TOUTIAO_ENDPOINT}?{urllib.parse.urlencode(params)}"
+    if word and word.strip():
+        params["word"] = word.strip()
+
+    url = f"{TIANAPI_GUONEI_ENDPOINT}?{urllib.parse.urlencode(params)}"
     req = urllib.request.Request(
         url,
         headers={
@@ -90,21 +94,20 @@ def fetch_toutiao_list(
 
     data = json.loads(body)
     if not isinstance(data, dict):
-        raise RuntimeError("unexpected Juhe response shape (not an object)")
-    result = JuheToutiaoResult(raw=data)
-    if result.error_code != 0:
-        raise RuntimeError(f"juhe error {result.error_code}: {result.reason}")
+        raise RuntimeError("unexpected Tianapi response shape (not an object)")
+    result = TianapiGuoneiResult(raw=data)
+    if result.code != 200:
+        raise RuntimeError(f"tianapi error {result.code}: {result.msg}")
     return result
 
 
-def normalize_juhe_item(item: dict[str, Any]) -> dict[str, Any]:
-    # Normalize to the project's common shape.
+def normalize_tianapi_item(item: dict[str, Any], *, matched_query: str | None = None) -> dict[str, Any]:
     return {
         "title": item.get("title"),
-        "source": item.get("author_name"),
-        "published_at": item.get("date"),
+        "source": item.get("source"),
+        "published_at": item.get("ctime"),
         "url": item.get("url"),
-        "summary": None,
-        "matched_query": None,
+        "summary": item.get("description"),
+        "matched_query": matched_query,
     }
 
