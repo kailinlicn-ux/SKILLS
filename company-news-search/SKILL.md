@@ -40,7 +40,7 @@ python company-news-search/scripts/search_domestic_news.py --input-text "1. [ali
 
 ### CSV 持久化（工作空间）
 
-- 默认会把每次查询结果写入：`company-news-search/data/news_results.csv`（追加模式）
+- 默认会把每次查询结果写入：`company-news-search/data/news_results.csv`（追加模式）；若文件不存在则自动新建
 - 每家公司保留并写入最新 5 条新闻
 - CSV 字段：
   - `time`
