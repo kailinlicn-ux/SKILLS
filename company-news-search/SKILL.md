@@ -40,24 +40,24 @@ python company-news-search/scripts/search_foreign_news.py --per-company 5
   - `news_title`
   - `news_link`
 - 可通过 `--csv-path` 指定其他工作空间内路径
+- **写入前处理（强制）**：
+  - 若 `news_title` 判定为英文，必须先翻译为中文，再写入 `news_title` 字段。
+  - 若翻译失败，允许回退写入原标题，但应在日志/结果中明确记录该条“翻译失败”。
 
 ### apikey 获取与保存（每个用户不同）
 
-- 优先从环境变量读取：`NEWSDATA_APIKEY`
-- 否则从用户目录读取/保存：`~/.klinsight/company-news-search.json`
-- 若两者都没有，脚本会在命令行中提示用户输入一次并保存到上述用户目录（**不会写入仓库文件**）。
+- 仅从项目文件读取：`company-news-search/company-news-search.json`
+- key 字段固定为：`newsdata.apikey`
+- 若不存在或为空，脚本直接报错并提示你先填写该文件。
 
 ### Secrets 约定（给其他 AI agent 复用）
 
-- 本 skill 统一使用用户级配置文件：`~/.klinsight/company-news-search.json`
+- 本 skill 统一使用项目文件：`company-news-search/company-news-search.json`
 - newsdata 的 key 字段约定为：
   - `newsdata.apikey`
-- 推荐读取优先级（必须遵守）：
-  1. `NEWSDATA_APIKEY` 环境变量
-  2. 项目内本地调试文件 `company-news-search/company-news-search.json` 中的 `newsdata.apikey`（应被 gitignore）
-  3. `~/.klinsight/company-news-search.json` 中的 `newsdata.apikey`
-  4. 若都不存在，再交互询问并写回 `~/.klinsight/company-news-search.json`
-- 禁止把 apikey 写入仓库内文件（如 `SKILL.md`、脚本源码、`data/*.json`、提交记录等）。
+- 读取方式（必须遵守）：
+  1. 仅读取 `company-news-search/company-news-search.json` 中的 `newsdata.apikey`
+- 禁止把 apikey 写入其他仓库文件（如 `SKILL.md`、脚本源码、`data/*.json`、提交记录等）。
 
 ## 上游输入（来自 company-watchlist）
 
@@ -107,7 +107,11 @@ python company-watchlist/scripts/watchlist.py list
    - 国外：使用 `newsdata.io`
      - `search_news_foreign(query, *, since, limit) -> NewsItem[]`
    - 国内：使用“聚合数据”
-     - `search_news_domestic(query, *, since, limit) -> NewsItem[]`
+    - 已实现客户端：`company-news-search/scripts/juhe_client.py`
+    - 查询接口：`http://v.juhe.cn/toutiao/index`
+    - key 来源：`company-news-search/company-news-search.json` 的 `juhe.key`
+    - 基础调用：`fetch_toutiao_list(type="top", page=1, page_size=30, is_filter=0)`
+    - 结果标准化：`normalize_juhe_item(...)` 映射到统一字段（title/source/published_at/url）
    - `since/limit` 的具体传参方式、分页策略、鉴权方式、错误/限流处理策略：**等待用户提供 API 实现约定**。
 
 5. **聚合、去重与排序**
