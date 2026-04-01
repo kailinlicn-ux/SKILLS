@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "updated_at": "2026-04-01T02:11:54.397953Z",
+  "items": [
+    {
+      "id": "tencent",
+      "name": "腾讯",
+      "aliases": [
+        "Tencent",
+        "0700.HK"
+      ]
+    },
+    {
+      "id": "alibaba",
+      "name": "阿里",
+      "aliases": [
+        "阿里巴巴",
+        "Alibaba",
+        "BABA"
+      ]
+    },
+    {
+      "id": "bytedance",
+      "name": "字节",
+      "aliases": [
+        "字节跳动",
+        "ByteDance"
+      ]
+    },
+    {
+      "id": "deepseek",
+      "name": "深度求索",
+      "aliases": [
+        "DeepSeek"
+      ]
+    },
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "aliases": []
+    },
+    {
+      "id": "anthropic",
+      "name": "Anthropic",
+      "aliases": []
+    },
+    {
+      "id": "palantir",
+      "name": "Palantir",
+      "aliases": [
+        "PLTR"
+      ]
+    },
+    {
+      "id": "anysphere",
+      "name": "Anysphere",
+      "aliases": [
+        "Cursor"
+      ]
+    }
+  ]
+}
