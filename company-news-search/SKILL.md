@@ -1,15 +1,15 @@
 ---
 name: company-news-search
-description: 接收 company-watchlist 的 list 输出，按国内/国外分流调用新闻 API 搜索最新新闻；仅定义流程与输入输出约定，不在未知 API 细节时臆造实现。
+description: 接收 company-watchlist 的 list 输出，统一调用 newsdata.io 搜索最新新闻；仅定义流程与输入输出约定，不在未知 API 细节时臆造实现。
 ---
 
 # 公司新闻搜索（Company News Search）
 
-本 skill 用于把 `company-watchlist` 的输出转化为“最新新闻检索任务”，并按公司归属（国内/国外）分流到不同新闻 API。
+本 skill 用于把 `company-watchlist` 的输出转化为“最新新闻检索任务”，并统一使用 `newsdata.io` 查询。
 
 ## 目标与边界
 
-- **只做**：解析 watchlist 列表 → 为每家公司生成查询词 → 分流到国内/国外新闻 API → 聚合/去重/排序 → 输出结果。
+- **只做**：解析 watchlist 列表 → 为每家公司生成查询词 → 调用 `newsdata.io` → 聚合/去重/排序 → 输出结果。
 - **不会做**：
   - 不在未知 API 细节时编造 URL、参数、鉴权方式、返回字段映射。
   - 不做投资建议。
@@ -30,14 +30,6 @@ python company-news-search/scripts/search_foreign_news.py --per-company 5
 - 管道输入（可选）：`watchlist.py list | search_foreign_news.py ...`
 - 参数输入（可选）：`--input-text "1. [anthropic] Anthropic"`
 
-## 命令行用法（国内新闻：tianapi）
-
-国内新闻搜索脚本：`company-news-search/scripts/search_domestic_news.py`
-
-```bash
-python company-news-search/scripts/search_domestic_news.py --input-text "1. [alibaba] 阿里巴巴" --per-company 10 --per-query 10
-```
-
 ### CSV 持久化（工作空间）
 
 - 默认会把每次查询结果写入：`company-news-search/data/news_results.csv`（追加模式）；若文件不存在则自动新建
@@ -56,6 +48,7 @@ python company-news-search/scripts/search_domestic_news.py --input-text "1. [ali
 
 - 仅从项目文件读取：`company-news-search/company-news-search.json`
 - key 字段固定为：`newsdata.apikey`
+- 用户也有可能直接给出`newsdata.apikey`，这种情况就直接把它写入`company-news-search.json`文件
 - 若不存在或为空，脚本直接报错并提示你先填写该文件。
 
 ### Secrets 约定（给其他 AI agent 复用）
@@ -102,21 +95,10 @@ python company-watchlist/scripts/watchlist.py list
      2) `aliases`（按原顺序追加）
    - 对候选进行去重（trim/大小写归一仅用于去重，不改变展示）。
 
-3. **公司分流：国内 vs 国外**
-   - 分流判定由使用本 skill 的 LLM/Agent 自行决定。
-   - 本 skill 不内置固定规则或映射表，不限制判定方法。
-   - 若 Agent 无法确定归属，可先向用户确认后再调用相应 API。
-
-4. **调用新闻 API（抽象接口，不绑定具体实现细节）**
-   - 国外：使用 `newsdata.io`
-     - `search_news_foreign(query, *, since, limit) -> NewsItem[]`
-  - 国内：使用天行数据国内新闻接口
-   - 已实现客户端：`company-news-search/scripts/tianapi_client.py`
-   - 查询接口：`https://apis.tianapi.com/guonei/index`
-   - key 来源：`company-news-search/company-news-search.json` 的 `tianapi.key`
-   - 基础调用：`fetch_guonei_list(num=10, page=1, form=1, rand=1, word=关键词)`
-   - 结果标准化：`normalize_tianapi_item(...)` 映射到统一字段（title/source/published_at/url/summary）
-   - `since/limit` 的具体传参方式、分页策略、鉴权方式、错误/限流处理策略：**等待用户提供 API 实现约定**。
+3. **调用新闻 API**
+   - 统一使用 `newsdata.io`
+   - 查询参数使用标题关键词：`qInTitle`
+   - 每家公司保留最新 5 条并写入 CSV
 
 5. **聚合、去重与排序**
    - 将同一公司、不同 query 返回的新闻合并。
@@ -145,5 +127,4 @@ python company-watchlist/scripts/watchlist.py list
 ## 需要用户后续提供的信息（用于落地实现）
 
 1. `newsdata.io` 的调用实现约定（鉴权、请求参数、返回字段、分页/limit、时间筛选、错误码、限流策略）。
-2. 天行数据的调用实现约定（同上）。
 
