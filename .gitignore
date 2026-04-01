@@ -7,6 +7,9 @@ __pycache__/
 venv/
 env/
 
+# Cursor（避免与仓库根目录 SKILL.md 重复，其他工具只以根目录为准）
+.cursor/skills/
+
 # IDE / OS
 .idea/
 .vscode/
