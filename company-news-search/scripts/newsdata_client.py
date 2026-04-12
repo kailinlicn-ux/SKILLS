@@ -11,9 +11,10 @@ from typing import Any
 NEWS_DATA_LATEST_ENDPOINT = "https://newsdata.io/api/1/latest"
 
 
-def _project_config_path() -> Path:
-    # Local workspace config for this project.
-    return Path(__file__).resolve().parents[1] / "company-news-search.json"
+def _project_config_paths() -> list[Path]:
+    """Prefer config.json; keep legacy filename for backward compatibility."""
+    base = Path(__file__).resolve().parents[1]
+    return [base / "config.json", base / "company-news-search.json"]
 
 
 def _load_apikey_from_path(p: Path) -> str | None:
@@ -30,7 +31,11 @@ def _load_apikey_from_path(p: Path) -> str | None:
 
 
 def load_newsdata_apikey() -> str | None:
-    return _load_apikey_from_path(_project_config_path())
+    for p in _project_config_paths():
+        key = _load_apikey_from_path(p)
+        if key:
+            return key
+    return None
 
 
 def ensure_newsdata_apikey(interactive: bool = True) -> str:
@@ -39,8 +44,10 @@ def ensure_newsdata_apikey(interactive: bool = True) -> str:
     if apikey:
         return apikey
 
+    base = Path(__file__).resolve().parents[1]
     raise RuntimeError(
-        f"missing newsdata apikey; please set newsdata.apikey in {_project_config_path()}"
+        f"missing newsdata apikey; please set newsdata.apikey in {base / 'config.json'} "
+        f"(or legacy {base / 'company-news-search.json'})"
     )
 
 

@@ -46,18 +46,25 @@ python company-news-search/scripts/search_foreign_news.py --per-company 5
 
 ### apikey 获取与保存（每个用户不同）
 
-- 仅从项目文件读取：`company-news-search/company-news-search.json`
+- 仅从项目文件读取：`company-news-search/config.json`（推荐；旧版 `company-news-search.json` 仍兼容）
 - key 字段固定为：`newsdata.apikey`
-- 用户也有可能直接给出`newsdata.apikey`，这种情况就直接把它写入`company-news-search.json`文件
+- 用户也有可能直接给出 `newsdata.apikey`，这种情况就直接把它写入 `config.json` 文件
 - 若不存在或为空，脚本直接报错并提示你先填写该文件。
+
+**新开发者首次配置（可提交到 Git 的只有示例文件）：**
+
+1. 复制 `company-news-search/config.example.json` 为同目录下的 `config.json`
+2. 将 `newsdata.apikey` 替换为你自己的 newsdata.io 密钥
+3. `config.json` 已被 `.gitignore` 忽略，**不要**把真实密钥提交到仓库
 
 ### Secrets 约定（给其他 AI agent 复用）
 
-- 本 skill 统一使用项目文件：`company-news-search/company-news-search.json`
+- 本 skill 统一使用项目文件：`company-news-search/config.json`
+- 仓库内仅保留模板：`company-news-search/config.example.json`（无真实密钥，可安全提交）
 - newsdata 的 key 字段约定为：
   - `newsdata.apikey`
 - 读取方式（必须遵守）：
-  1. 仅读取 `company-news-search/company-news-search.json` 中的 `newsdata.apikey`
+  1. 读取 `company-news-search/config.json` 中的 `newsdata.apikey`（若不存在则尝试旧文件名 `company-news-search.json`）
 - 禁止把 apikey 写入其他仓库文件（如 `SKILL.md`、脚本源码、`data/*.json`、提交记录等）。
 
 ## 上游输入（来自 company-watchlist）
