@@ -4,6 +4,7 @@
 
 | 目录 | 说明 |
 |------|------|
-| `company-watchlist/` | 公司观测列表（`SKILL.md`、`data/`、`scripts/`） |
-| `company-news-search/` | 基于 watchlist 拉取新闻（`SKILL.md`、`scripts/`） |
-| `github-insight/` | GitHub Trending 抓取与输出（`SKILL.md`、`scripts/`） |
+| `company-watchlist/` | 基于用户需求生成公司观测列表（`SKILL.md`、`data/`、`scripts/`） |
+| `company-news-search/` | 基于 公司观测列表 拉取新闻（`SKILL.md`、`scripts/`） |
+| `github-insight/` | GitHub Trending 抓取与输出当日标星增长最快的项目（`SKILL.md`、`scripts/`） |
+
